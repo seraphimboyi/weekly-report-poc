@@ -1,6 +1,7 @@
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { createLLM } from "@/lib/llm";
+import { chatBodySchema, parseBody } from "@/lib/schemas";
 
 export const runtime = "nodejs";
 
@@ -10,11 +11,9 @@ const prompt = ChatPromptTemplate.fromMessages([
 ]);
 
 export async function POST(req: Request) {
-  const { message } = (await req.json()) as { message?: string };
-
-  if (!message) {
-    return Response.json({ error: "message is required" }, { status: 400 });
-  }
+  const result = await parseBody(req, chatBodySchema);
+  if ("error" in result) return result.error;
+  const { message } = result.data;
 
   const chain = prompt.pipe(createLLM()).pipe(new StringOutputParser());
   const stream = await chain.stream({ input: message });
