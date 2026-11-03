@@ -10,9 +10,12 @@
     "format": "biome format --write"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.4",
     "next": "16.4.4",
+    "postcss": "^8.5.32",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "tailwindcss": "^4.3.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.2",
