@@ -1,8 +1,6 @@
 import { agent } from "@/lib/agent";
 import { agentBodySchema, parseBody } from "@/lib/schemas";
 
-export const runtime = "nodejs";
-
 export async function POST(req: Request) {
   const result = await parseBody(req, agentBodySchema);
   if ("error" in result) return result.error;

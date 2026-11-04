@@ -3,8 +3,6 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { createLLM } from "@/lib/llm";
 import { chatBodySchema, parseBody } from "@/lib/schemas";
 
-export const runtime = "nodejs";
-
 const prompt = ChatPromptTemplate.fromMessages([
   ["system", "You are a helpful assistant."],
   ["human", "{input}"],
