@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    image: weekly-report-poc
+    ports:
+      - "3535:3535"
+    environment:
+      TZ: Asia/Taipei
+    volumes:
+      - weekly-report-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  weekly-report-data:

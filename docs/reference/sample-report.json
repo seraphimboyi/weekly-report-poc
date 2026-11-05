@@ -2,12 +2,42 @@
   "weekStart": "2026/11/02",
   "weekEnd": "2026/11/06",
   "thisWeek": [
-    { "no": 1, "title": "週報工具 POC 規格書撰寫", "progress": "100%", "dueDate": "2026/11/04", "note": "規格已與主管確認" },
-    { "no": 2, "title": "DocExtractor_FE 上傳頁面調整", "progress": "60%", "dueDate": "2026/11/13", "note": "完成檔案拖曳上傳，剩錯誤提示" },
-    { "no": 3, "title": "內部 Wiki 文件整理", "progress": "30%", "dueDate": "2026/11/20", "note": "" }
+    {
+      "no": 1,
+      "title": "週報工具 POC 規格書撰寫",
+      "progress": "100%",
+      "dueDate": "2026/11/04",
+      "note": "規格已與主管確認"
+    },
+    {
+      "no": 2,
+      "title": "DocExtractor_FE 上傳頁面調整",
+      "progress": "60%",
+      "dueDate": "2026/11/13",
+      "note": "完成檔案拖曳上傳，剩錯誤提示"
+    },
+    {
+      "no": 3,
+      "title": "內部 Wiki 文件整理",
+      "progress": "30%",
+      "dueDate": "2026/11/20",
+      "note": ""
+    }
   ],
   "nextWeek": [
-    { "no": 1, "title": "DocExtractor_FE 上傳頁面調整", "targetProgress": "100%", "dueDate": "2026/11/13", "note": "預計週三交付測試" },
-    { "no": 2, "title": "內部 Wiki 文件整理", "targetProgress": "60%", "dueDate": "2026/11/20", "note": "" }
+    {
+      "no": 1,
+      "title": "DocExtractor_FE 上傳頁面調整",
+      "targetProgress": "100%",
+      "dueDate": "2026/11/13",
+      "note": "預計週三交付測試"
+    },
+    {
+      "no": 2,
+      "title": "內部 Wiki 文件整理",
+      "targetProgress": "60%",
+      "dueDate": "2026/11/20",
+      "note": ""
+    }
   ]
 }
