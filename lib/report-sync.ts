@@ -1,5 +1,4 @@
 import type { DismissedItem, ReportContent, ThisWeekRow } from "./report";
-import { sortRowsByDueDate } from "./report-order";
 
 export type SyncSummary = { added: number; updated: number; removed: number };
 
@@ -85,12 +84,25 @@ function mergeRows<T extends AnyRow>(
     else summary.removed++;
   }
 
-  // Manual rows stay at the end, in their current order.
+  // Manual rows are always kept.
   for (const e of rows) if (!e.groupKey) merged.push(e);
 
+  // Keep the current order (the user sorts by hand); new rows go last.
+  const position = new Map<string, number>();
+  rows.forEach((r, i) => {
+    position.set(r.id, i);
+  });
+  const ordered = merged
+    .map((row, index) => ({
+      row,
+      index,
+      pos: position.get(row.id) ?? Number.POSITIVE_INFINITY,
+    }))
+    .sort((a, b) => (a.pos === b.pos ? a.index - b.index : a.pos - b.pos))
+    .map((x) => x.row);
+
   return {
-    // Earliest due date first; blank ones last (stable).
-    rows: sortRowsByDueDate(merged).map((r, i) => ({ ...r, no: i + 1 })),
+    rows: ordered.map((r, i) => ({ ...r, no: i + 1 })),
     dismissed: dismissed.filter((d) => generatedKeys.has(d.groupKey)),
     summary,
   };

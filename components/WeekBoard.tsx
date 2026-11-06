@@ -6,7 +6,13 @@ import type { Entry, FavoriteProject } from "@/db/schema";
 import { WEEK_CONFIG } from "@/lib/config";
 import { todayString } from "@/lib/date";
 import type { ProjectInfo } from "@/lib/entries";
-import { addDays, getWeekRange, parseIsoDate, toIsoDate } from "@/lib/week";
+import {
+  addDays,
+  getWeekRange,
+  isWeekend,
+  parseIsoDate,
+  toIsoDate,
+} from "@/lib/week";
 import { DayColumn } from "./DayColumn";
 import { useToast } from "./Toast";
 
@@ -65,12 +71,13 @@ export function WeekBoard({ date }: { date: string | null }) {
 
   if (!weekStart || !startIso) return <p className="text-muted">載入中…</p>;
 
-  const span = WEEK_CONFIG.endDay - WEEK_CONFIG.startDay + 1;
-  const days = Array.from({ length: span }, (_, i) => addDays(weekStart, i));
-  const weekendEntries = (entries ?? []).filter((e) => {
-    const d = parseIsoDate(e.date).getDay();
-    return d < WEEK_CONFIG.startDay || d > WEEK_CONFIG.endDay;
-  });
+  const allDays = Array.from({ length: WEEK_CONFIG.length }, (_, i) =>
+    addDays(weekStart, i),
+  );
+  const days = allDays.filter((d) => !isWeekend(d));
+  const weekendEntries = (entries ?? []).filter((e) =>
+    isWeekend(parseIsoDate(e.date)),
+  );
 
   const prev = toIsoDate(addDays(weekStart, -7));
   const next = toIsoDate(addDays(weekStart, 7));
@@ -80,7 +87,7 @@ export function WeekBoard({ date }: { date: string | null }) {
   const navLink =
     "rounded-md px-3 py-1 text-muted transition-colors hover:bg-slate-100 hover:text-ink";
   const range = `${startIso.slice(5).replace("-", "/")} – ${toIsoDate(
-    days[days.length - 1],
+    allDays[allDays.length - 1],
   )
     .slice(5)
     .replace("-", "/")}`;

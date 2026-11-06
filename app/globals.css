@@ -60,6 +60,10 @@ body {
     @apply border-brand bg-brand text-white hover:bg-brand-strong active:bg-brand-strong;
   }
 
+  .btn-lg {
+    @apply min-h-11 gap-2 px-6 text-base font-semibold shadow-sm;
+  }
+
   .btn-danger {
     @apply border-danger-soft text-danger hover:bg-danger-soft active:bg-danger-soft;
   }

@@ -30,8 +30,6 @@ type Props<T extends Row> = {
   onEdit: (id: string, patch: Partial<T>) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
-  /** Called when a due date changes (to re-sort the table). */
-  onDueDateCommit: () => void;
   /** Drop manual edits on a row so it follows the latest data again. */
   onReset?: (id: string) => void;
   onRestore?: (groupKey: string) => void;
@@ -65,10 +63,6 @@ function openPicker(e: React.MouseEvent<HTMLInputElement>) {
   }
 }
 
-// Delay before re-sorting after a date is picked, so keyboard typing
-// is not interrupted by the row jumping to a new position.
-const SORT_DELAY_MS = 800;
-
 // "60%" <-> "60"; storage keeps the display string used by the Word template.
 const stripPercent = (s: string) => s.replace(/%$/, "");
 const withPercent = (s: string) => (s.trim() === "" ? "" : `${s.trim()}%`);
@@ -83,29 +77,12 @@ export function ReportTable<T extends Row>({
   onEdit,
   onRemove,
   onAdd,
-  onDueDateCommit,
   onReset,
   onRestore,
 }: Props<T>) {
   // Deleting is a two-step action: first click asks, second click deletes.
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const sortTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const commitRef = useRef(onDueDateCommit);
-  commitRef.current = onDueDateCommit;
-
-  useEffect(
-    () => () => {
-      if (sortTimer.current) clearTimeout(sortTimer.current);
-    },
-    [],
-  );
-
-  function commitNow() {
-    if (sortTimer.current) clearTimeout(sortTimer.current);
-    sortTimer.current = null;
-    commitRef.current();
-  }
 
   // Land on the safe choice so a stray Enter cannot delete.
   useEffect(() => {
@@ -209,14 +186,11 @@ export function ReportTable<T extends Row>({
                     className="field"
                     value={toInputDate(r.dueDate)}
                     onClick={openPicker}
-                    onBlur={commitNow}
                     onChange={(e) => {
                       // Stored as YYYY/MM/DD; the picker works in YYYY-MM-DD.
                       onEdit(r.id, {
                         dueDate: e.target.value.replaceAll("-", "/"),
                       } as Partial<T>);
-                      if (sortTimer.current) clearTimeout(sortTimer.current);
-                      sortTimer.current = setTimeout(commitNow, SORT_DELAY_MS);
                     }}
                   />
                 </label>

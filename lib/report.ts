@@ -2,7 +2,7 @@ import { and, between, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { type Entry, entries } from "@/db/schema";
 import { DEFAULT_USER_ID } from "./config";
-import { toIsoDate, toSlashDate } from "./week";
+import { isWeekend, parseIsoDate, toIsoDate, toSlashDate } from "./week";
 
 /**
  * Rows built from notes carry `groupKey` (the work item, or one single note),
@@ -81,7 +81,7 @@ function buildNote(all: Entry[]): string {
 }
 
 /**
- * Build the report from notes (no LLM). Notes of the work week (Mon-Fri) that
+ * Build the report from notes (no LLM). Notes of the report week (no weekend) that
  * share a work item merge into one row; a note without a work item is a row
  * of its own. Progress and due date are never taken from notes: they are
  * left blank and filled in by hand on the report page. The note lists all of the item's
@@ -91,7 +91,7 @@ export function generateDraft(weekStart: Date, weekEnd: Date): ReportContent {
   const startIso = toIsoDate(weekStart);
   const endIso = toIsoDate(weekEnd);
 
-  // This week's notes (Mon-Fri), oldest first.
+  // This week's notes (weekend days excluded), oldest first.
   const weekEntries: Entry[] = db
     .select()
     .from(entries)
@@ -102,7 +102,8 @@ export function generateDraft(weekStart: Date, weekEnd: Date): ReportContent {
       ),
     )
     .orderBy(entries.date, entries.id)
-    .all();
+    .all()
+    .filter((e) => !isWeekend(parseIsoDate(e.date)));
   const groups = new Map<string, Group>();
   for (const e of weekEntries) {
     const key = e.project ? `p:${e.project}` : `e:${e.id}`;

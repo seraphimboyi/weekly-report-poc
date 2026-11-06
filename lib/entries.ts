@@ -3,14 +3,14 @@ import { db } from "@/db";
 import { type Entry, entries } from "@/db/schema";
 import { NotFoundError } from "./api";
 import { DEFAULT_USER_ID } from "./config";
-import { addDays, getWeekRange, parseIsoDate, toIsoDate } from "./week";
+import { getWeekRange, parseIsoDate, toIsoDate } from "./week";
 
 const nowIso = () => new Date().toISOString();
 
-/** Monday..Sunday of the week containing `dateIso` (weekend entries still load). */
+/** Full range of the report week containing `dateIso` (weekend entries still load). */
 export function weekRange(dateIso: string) {
-  const { start } = getWeekRange(parseIsoDate(dateIso));
-  return { start: toIsoDate(start), end: toIsoDate(addDays(start, 6)) };
+  const { start, end } = getWeekRange(parseIsoDate(dateIso));
+  return { start: toIsoDate(start), end: toIsoDate(end) };
 }
 
 export function listEntries(startIso: string, endIso: string): Entry[] {

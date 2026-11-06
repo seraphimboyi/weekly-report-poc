@@ -11,7 +11,13 @@ import type {
   ThisWeekRow,
 } from "@/lib/report";
 import { sortRowsByDueDate } from "@/lib/report-order";
-import { addDays, getWeekRange, parseIsoDate, toIsoDate } from "@/lib/week";
+import {
+  addDays,
+  getWeekRange,
+  isWeekend,
+  parseIsoDate,
+  toIsoDate,
+} from "@/lib/week";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ReportTable } from "./ReportTable";
 import { TaskMenu } from "./TaskMenu";
@@ -26,6 +32,8 @@ type SyncResult = {
   pending: number;
   created: boolean;
 };
+
+const WEEKDAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
 const SAVE_DELAY_MS = 800;
 
@@ -358,20 +366,30 @@ export function ReportEditor({ date }: { date: string }) {
     edit(
       {
         ...content,
-        nextWeek: sortRowsByDueDate([...content.nextWeek, added]),
+        nextWeek: [...content.nextWeek, added],
       },
       true,
     );
     toast.success("已新增至下週工作項目（已帶入名稱與預計完成日）");
   }
 
-  /** After a due date is entered, put the table back in due-date order. */
+  /** Manual action: put a table in due-date order and save right away. */
   function sortTable(table: "thisWeek" | "nextWeek") {
     if (!content) return;
     const rows = content[table] as { id: string; dueDate: string }[];
     const sorted = sortRowsByDueDate(rows);
-    if (sorted.every((r, i) => r.id === rows[i].id)) return;
-    edit({ ...content, [table]: sorted } as ReportContent);
+    if (sorted.every((r, i) => r.id === rows[i].id)) {
+      toast.success("順序已是依預計完成日排列");
+      return;
+    }
+    edit(
+      {
+        ...content,
+        [table]: sorted.map((r, i) => ({ ...r, no: i + 1 })),
+      } as ReportContent,
+      true,
+    );
+    toast.success("已依預計完成日排序");
   }
 
   function resetRow(table: "thisWeek" | "nextWeek", id: string) {
@@ -411,6 +429,19 @@ export function ReportEditor({ date }: { date: string }) {
 
   const navLink =
     "rounded-md px-3 py-1 text-muted transition-colors hover:bg-slate-100 hover:text-ink";
+
+  // e.g. "週三 → 下週二 · 共 5 個工作日", derived from the report's own range.
+  let rangeLabel = "";
+  if (content) {
+    const s = parseIsoDate(content.weekStart.replaceAll("/", "-"));
+    const e = parseIsoDate(content.weekEnd.replaceAll("/", "-"));
+    const spanDays = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
+    const workdays = Array.from({ length: spanDays }, (_, i) =>
+      addDays(s, i),
+    ).filter((d) => !isWeekend(d)).length;
+    const crossesWeek = e.getDay() < s.getDay();
+    rangeLabel = `${WEEKDAYS[s.getDay()]} → ${crossesWeek ? "下" : ""}${WEEKDAYS[e.getDay()]} · 共 ${workdays} 個工作日`;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -463,39 +494,52 @@ export function ReportEditor({ date }: { date: string }) {
 
       {report && content && (
         <>
-          <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs text-muted">工作區間</p>
-              <p className="text-lg font-semibold tabular-nums">
-                {content.weekStart} – {content.weekEnd}
+          <div className="card">
+            <div className="flex flex-col gap-2 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted">工作區間</p>
+                <div className="flex items-center gap-2">
+                  <output className="text-xs text-muted">
+                    {saveState === "saving" && "儲存中…"}
+                    {saveState === "saved" && "已自動儲存"}
+                    {saveState === "error" && (
+                      <span className="text-danger">儲存失敗</span>
+                    )}
+                  </output>
+                  <span
+                    className={`badge ${report.status === "exported" ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn"}`}
+                  >
+                    {report.status === "exported" ? "已匯出" : "草稿"}
+                  </span>
+                </div>
+              </div>
+              <p
+                className={`flex w-fit flex-wrap items-center gap-x-2 rounded-lg px-3 py-1.5 text-2xl font-semibold tabular-nums ${isThisWeek ? "bg-brand-soft text-brand" : "bg-slate-100 text-muted"}`}
+              >
+                <span>{content.weekStart}</span>
+                <span
+                  aria-hidden="true"
+                  className={isThisWeek ? "text-brand/40" : "text-muted/40"}
+                >
+                  –
+                </span>
+                <span>{content.weekEnd}</span>
+              </p>
+              <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                <span>{rangeLabel}</span>
+                <span
+                  className={`badge ${isThisWeek ? "bg-brand-soft text-brand" : "bg-slate-100 text-muted"}`}
+                >
+                  {isThisWeek ? "本週" : "過去週次"}
+                </span>
               </p>
               {isThisWeek && (
-                <p className="mt-1 text-xs text-muted">
+                <p className="text-xs text-muted">
                   內容會依最新的記事自動更新；你在這裡修改的內容只留在週報，不會改到記事，也不會被自動更新覆蓋。
                 </p>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <output className="mr-1 min-w-20 text-sm text-muted sm:text-right">
-                {saveState === "saving" && "儲存中…"}
-                {saveState === "saved" && "已自動儲存"}
-                {saveState === "error" && (
-                  <span className="text-danger">儲存失敗</span>
-                )}
-              </output>
-              <span
-                className={`badge ${report.status === "exported" ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn"}`}
-              >
-                {report.status === "exported" ? "已匯出" : "草稿"}
-              </span>
-              <button
-                type="button"
-                onClick={exportDocx}
-                disabled={exporting}
-                className="btn btn-primary"
-              >
-                {exporting ? "匯出中…" : "匯出 Word"}
-              </button>
+            <div className="flex items-center justify-end gap-2 rounded-b-xl border-t border-line bg-slate-50 px-5 py-3">
               <TaskMenu
                 items={[
                   {
@@ -505,11 +549,44 @@ export function ReportEditor({ date }: { date: string }) {
                   },
                 ]}
               />
+              <button
+                type="button"
+                onClick={exportDocx}
+                disabled={exporting}
+                className="btn btn-primary btn-lg max-sm:flex-1"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" />
+                </svg>
+                {exporting
+                  ? "匯出中…"
+                  : report.status === "exported"
+                    ? "重新匯出 Word"
+                    : "匯出 Word"}
+              </button>
             </div>
           </div>
 
           <section className="flex flex-col gap-3">
-            <h2 className="font-semibold">一、本週工作項目</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">一、本週工作項目</h2>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => sortTable("thisWeek")}
+              >
+                依預計完成日排序
+              </button>
+            </div>
             <p className="-mt-1 text-xs text-muted">
               按每列下方的「新增至下週工作項目」，會把名稱和預計完成日帶到下週表；預計達成進度和備註請到下週表填寫。
             </p>
@@ -522,7 +599,6 @@ export function ReportEditor({ date }: { date: string }) {
               dismissed={content.dismissed?.thisWeek ?? []}
               onEdit={(id, patch) => editRow("thisWeek", id, patch)}
               onRemove={(id) => removeRow("thisWeek", id)}
-              onDueDateCommit={() => sortTable("thisWeek")}
               onReset={(id) => resetRow("thisWeek", id)}
               onRestore={(groupKey) => restoreRow("thisWeek", groupKey)}
               onAdd={() => {
@@ -549,7 +625,16 @@ export function ReportEditor({ date }: { date: string }) {
           </section>
 
           <section className="flex flex-col gap-3">
-            <h2 className="font-semibold">二、下週預計工作項目</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">二、下週預計工作項目</h2>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => sortTable("nextWeek")}
+              >
+                依預計完成日排序
+              </button>
+            </div>
             <ReportTable<NextWeekRow>
               rows={content.nextWeek}
               progressKey="targetProgress"
@@ -557,7 +642,6 @@ export function ReportEditor({ date }: { date: string }) {
               emptyText="沒有項目。按本週工作項目下方的「新增至下週工作項目」加入，也可以按下方「新增一列」。"
               onEdit={(id, patch) => editRow("nextWeek", id, patch)}
               onRemove={(id) => removeRow("nextWeek", id)}
-              onDueDateCommit={() => sortTable("nextWeek")}
               onAdd={() => {
                 edit(
                   {

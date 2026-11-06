@@ -18,7 +18,12 @@ export function toSlashDate(iso: string): string {
   return iso.replaceAll("-", "/");
 }
 
-/** Work-week range (per WEEK_CONFIG) containing the given date. */
+/** True for days that are read-only and excluded from the report. */
+export function isWeekend(date: Date): boolean {
+  return (WEEK_CONFIG.weekendDays as readonly number[]).includes(date.getDay());
+}
+
+/** Report-week range (per WEEK_CONFIG) containing the given date. */
 export function getWeekRange(date: Date): { start: Date; end: Date } {
   const offset = (date.getDay() - WEEK_CONFIG.startDay + 7) % 7;
   const start = new Date(
@@ -29,7 +34,7 @@ export function getWeekRange(date: Date): { start: Date; end: Date } {
   const end = new Date(
     start.getFullYear(),
     start.getMonth(),
-    start.getDate() + (WEEK_CONFIG.endDay - WEEK_CONFIG.startDay),
+    start.getDate() + WEEK_CONFIG.length - 1,
   );
   return { start, end };
 }
