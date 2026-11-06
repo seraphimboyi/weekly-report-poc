@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Entry } from "@/db/schema";
+import type { Entry, FavoriteProject } from "@/db/schema";
 import { WEEK_CONFIG } from "@/lib/config";
 import { todayString } from "@/lib/date";
 import type { ProjectInfo } from "@/lib/entries";
@@ -13,11 +13,12 @@ import { useToast } from "./Toast";
 const WEEKDAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
 export function WeekBoard({ date }: { date: string | null }) {
-  const { show } = useToast();
+  const toast = useToast();
   // Today is read on the client only (avoids prerendering a changing value).
   const [today, setToday] = useState<string | null>(null);
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteProject[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => setToday(todayString()), []);
@@ -31,9 +32,10 @@ export function WeekBoard({ date }: { date: string | null }) {
 
   const load = useCallback(async () => {
     if (!startIso) return;
-    const [e, p] = await Promise.all([
+    const [e, p, f] = await Promise.all([
       fetch(`/api/entries?date=${startIso}`, { cache: "no-store" }),
       fetch("/api/projects", { cache: "no-store" }),
+      fetch("/api/favorites", { cache: "no-store" }),
     ]);
     if (!e.ok) {
       setError("載入失敗，請重新整理頁面");
@@ -42,6 +44,7 @@ export function WeekBoard({ date }: { date: string | null }) {
     setError(null);
     setEntries((await e.json()).entries);
     if (p.ok) setProjects(await p.json());
+    if (f.ok) setFavorites(await f.json());
   }, [startIso]);
 
   useEffect(() => {
@@ -53,10 +56,10 @@ export function WeekBoard({ date }: { date: string | null }) {
   async function remove(entry: Entry) {
     const res = await fetch(`/api/entries/${entry.id}`, { method: "DELETE" });
     if (res.ok) {
-      show({ message: "已刪除記事", duration: 2500 });
+      toast.success("已刪除記事");
       load();
     } else {
-      show({ message: "刪除失敗，請再試一次", duration: 4000 });
+      toast.error("刪除記事失敗，請再試一次");
     }
   }
 
@@ -130,6 +133,7 @@ export function WeekBoard({ date }: { date: string | null }) {
                   isToday={iso === today}
                   entries={entries.filter((e) => e.date === iso)}
                   projects={projects}
+                  favorites={favorites}
                   onChanged={load}
                   onDelete={remove}
                 />
@@ -146,6 +150,7 @@ export function WeekBoard({ date }: { date: string | null }) {
                   isToday={iso === today}
                   entries={weekendEntries.filter((e) => e.date === iso)}
                   projects={projects}
+                  favorites={favorites}
                   readOnly
                   onChanged={load}
                   onDelete={remove}

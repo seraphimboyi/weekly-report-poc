@@ -9,8 +9,12 @@ import {
   useState,
 } from "react";
 
+const SUCCESS_MS = 3000;
+const ERROR_MS = 4000;
+
 type ToastInput = {
   message: string;
+  variant?: "default" | "success" | "error";
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
   /** Runs when the toast times out without the action being used. */
@@ -20,9 +24,15 @@ type ToastInput = {
 
 type Item = ToastInput & { id: number };
 
-const ToastContext = createContext<{ show: (t: ToastInput) => void } | null>(
-  null,
-);
+type ToastApi = {
+  show: (t: ToastInput) => void;
+  /** Standard success toast ("已…"), 3 seconds. */
+  success: (message: string) => void;
+  /** Standard failure toast ("…失敗…"), 4 seconds. */
+  error: (message: string) => void;
+};
+
+const ToastContext = createContext<ToastApi | null>(null);
 
 export function useToast() {
   const ctx = useContext(ToastContext);
@@ -56,7 +66,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const value = useMemo(() => ({ show }), [show]);
+  const value = useMemo<ToastApi>(
+    () => ({
+      show,
+      success: (message) =>
+        show({ message, variant: "success", duration: SUCCESS_MS }),
+      error: (message) =>
+        show({ message, variant: "error", duration: ERROR_MS }),
+    }),
+    [show],
+  );
 
   return (
     <ToastContext.Provider value={value}>
@@ -69,9 +88,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {items.map((item) => (
           <div
             key={item.id}
-            className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-lg"
+            role={item.variant === "error" ? "alert" : undefined}
+            className={`pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-lg ${
+              item.variant === "error" ? "bg-danger" : "bg-ink"
+            }`}
           >
-            <span className="min-w-0 break-words">{item.message}</span>
+            <span className="flex min-w-0 items-start gap-2">
+              {item.variant && item.variant !== "default" && (
+                <span
+                  aria-hidden
+                  className={`font-bold ${item.variant === "success" ? "text-green-400" : ""}`}
+                >
+                  {item.variant === "success" ? "✓" : "!"}
+                </span>
+              )}
+              <span className="break-words">{item.message}</span>
+            </span>
             {item.actionLabel && (
               <button
                 type="button"

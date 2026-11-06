@@ -96,3 +96,19 @@ export const entries = sqliteTable(
 );
 
 export type Entry = typeof entries.$inferSelect;
+
+/** Shortcut list of work item names (e.g. 會議, 出差). Independent of entries. */
+export const favoriteProjects = sqliteTable(
+  "favorite_projects",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull().default("local"),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull().default(now),
+    updatedAt: text("updated_at").notNull().default(now),
+  },
+  (t) => [uniqueIndex("favorite_projects_user_name_idx").on(t.userId, t.name)],
+);
+
+export type FavoriteProject = typeof favoriteProjects.$inferSelect;

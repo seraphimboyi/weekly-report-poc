@@ -8,7 +8,7 @@
 
 ## 專案現況
 
-- 已完成：每日記事、週報自動帶入與編輯、Word 匯出、Docker 化
+- 已完成：每日記事、常用項目（/favorites）、週報自動帶入與編輯、Word 匯出、Docker 化
 - 尚未：部署到公司內部主機；登入與帳號；自動化測試
 - 待重新驗證：
   - Word 匯出在記事制改版後，內容已用 API 驗證，但還沒有人工用 Word 開啟確認版面
@@ -49,20 +49,22 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 ## 目錄慣例
 
 - `app/`：頁面與 API
-  - `page.tsx`：本週記事（首頁）；`report/page.tsx`：週報頁
+  - `page.tsx`：本週記事（首頁）；`report/page.tsx`：週報頁；`favorites/page.tsx`：常用項目管理頁
   - `api/**/route.ts`：Route Handler，見下方「API 端點」
 - `components/`：React 元件
-  - 記事：`WeekBoard`（週視圖）、`DayColumn`（單日欄位）、`EntryItem`（記事卡片）、`EntryComposer`（新增與編輯表單）
+  - 記事：`WeekBoard`（週視圖）、`DayColumn`（單日欄位）、`EntryItem`（記事卡片）、`EntryComposer`（新增與編輯表單，含「最近使用」「常用項目」兩個清單按鈕）
   - 週報：`ReportEditor`（載入、同步、自動保存、匯出）、`ReportTable`（可編輯表格）
-  - 共用：`AppHeader`、`AutoGrowTextarea`、`TaskMenu`（「⋯」選單）、`Toast`
+  - 常用項目：`FavoritesManager`（新增、改名、刪除、↑↓ 排序）
+  - 共用：`AppHeader`、`AutoGrowTextarea`、`TaskMenu`（「⋯」選單）、`Toast`（成功／失敗提示）、`ConfirmDialog`（Modal 確認框）
 - `db/`：`schema.ts`（Drizzle schema）、`index.ts`（連線，啟用 WAL 與 foreign_keys）
 - `lib/`：共用邏輯
   - `config.ts`（`WEEK_CONFIG`、使用者）、`date.ts`、`week.ts`（週次與日期格式）
   - `entries.ts`（記事 CRUD、最近用過的工作項目）
+  - `favorites.ts`（常用項目 CRUD 與排序）
   - `report.ts`（由記事產生週報）、`report-sync.ts`（同步合併規則）、`report-order.ts`（依預計完成日排序，純函式，前後端共用）、`reports.ts`（週報的存取與同步）
   - `export.ts`（套 Word 範本）、`validators.ts`（zod schema）、`api.ts`（錯誤回應與輸入解析）
 - `templates/`：Word 範本
-- `drizzle/`：migration（`0002` 含舊資料轉換）
+- `drizzle/`：migration（`0002` 含舊資料轉換；`0003` 新增 `favorite_projects`）
 - `scripts/`：容器啟動腳本（`migrate.mjs`、`docker-entrypoint.sh`）
 - `docs/`：規格書與套版參考
 - `data/`：SQLite 資料庫檔案，不進版控、不要直接刪除或手動修改
@@ -71,6 +73,7 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 
 - `entries`：每日記事（主要資料）。`date`（YYYY-MM-DD）、`project`（工作項目，**必填**）、`content`（備註，選填，可為空字串）；`progress`、`due_date`、`carry_over` 欄位已不使用。同一個 `project` 的記事在週報合併成一列
 - `weekly_reports`：週報內容（含手動修改的紀錄）。`week_start`、`week_end`（`YYYY/MM/DD`）、`content`（JSON）、`status`（draft / exported）、`exported_at`；`(user_id, week_start)` 唯一，一週一份
+- `favorite_projects`：常用項目（`name`、`sort_order`；`(user_id, name)` 唯一），只是新增記事時的填入捷徑，與 `entries` 沒有關聯：改名、刪除都不影響既有記事與週報
 - `tasks`、`logs`：舊的任務與日誌，已在 migration 0002 轉成 `entries`。資料表保留作備份與舊週報對應，**畫面與 API 都不再使用**，不要再寫入
 - 每張表都帶 `user_id`（目前寫死單一使用者 `local`），`entries` 另有 `visibility`（預設 private），為之後團隊共享預留
 - `entries.project` 在資料庫層允許 NULL（舊資料），「必填」由 API 與介面把關
@@ -86,10 +89,10 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 ### 記事（本週記事頁）
 
 - 主要介面是「本週記事」：一到五五格，直接在每一格新增當天的記事，不需要先建立任務；可切換上一週、下一週補記
-- 每筆記事：「工作項目」必填、「備註」選填。工作項目一律由使用者自己填，系統不從上次記事或瀏覽器儲存空間帶入（只有「用過的工作項目」建議清單，點選才會填入）
+- 每筆記事：「工作項目」必填、「備註」選填。工作項目一律由使用者自己填，系統不從上次記事或瀏覽器儲存空間帶入（只有工作項目欄下方的兩個按鈕：「最近使用」列最近 6 種且排除已在常用的項目、「常用項目」列 /favorites 維護的清單並附「管理常用項目」連結；一次只展開一個，點選才會填入；輸入時不會自動跳出建議）
 - 工作項目與備註是同樣的輸入框：會隨內容長高、都可以用 Shift+Enter 換行、Enter 存檔、Esc 取消；週報頁的工作項目描述與備註也是同樣的輸入框
 - 週末若有記事（補記或舊資料），首頁會多顯示一列「週末」（唯讀）；週報不帶入週末的記事
-- 今天那一欄的新增表單常駐；其他天點「＋ 新增記事」展開，點到別處會自動收合（已輸入內容時不收合，避免遺失）
+- 每一天（含今天）的新增行為一致：點「＋ 新增記事」展開，存檔、取消、Esc 或點到別處都會收合（已輸入內容時點別處不收合，避免遺失）
 
 ### 週報產生（不使用 LLM）
 
@@ -110,7 +113,7 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 - 只有**當週**自動套用；過去週次不自動改動，頁面顯示「套用更新」橫幅由使用者決定；未來週次不產生
 - 已匯出的週報之後只要有更新或修改，狀態就回到 draft（exported 代表匯出後沒有變動）
 - 預覽頁的修改只存在 `weekly_reports` 裡，**不回寫**到記事
-- 「從頭重新產生」收在選單裡，會清除所有手動修改（含下週表），需確認
+- 「從頭重新產生」收在選單裡，會清除所有手動修改（含下週表），需在 Modal 確認框確認
 - 儲存方式：打字約 0.8 秒後自動保存；刪除列、新增列、加入下週等結構變動立刻保存；離開或重新整理頁面時若還有未存內容，會用 `keepalive` 補存
 - 匯出前先同步（當週），成功後狀態改為 exported，檔名 `週報_YYYYMMDD-YYYYMMDD.docx`
 
@@ -172,6 +175,10 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 | PATCH  | `/api/entries/[id]`        | 編輯記事（部分欄位，工作項目不可清空）                       |
 | DELETE | `/api/entries/[id]`        | 刪除記事                                                     |
 | GET    | `/api/projects`            | 最近用過的工作項目（建議清單用）                             |
+| GET    | `/api/favorites`           | 常用項目，依順序                                             |
+| POST   | `/api/favorites`           | 新增常用項目（`name`），重複回 409                           |
+| PATCH  | `/api/favorites/[id]`      | 改名（`name`）或調整順序（`move: up/down`，回傳新順序）      |
+| DELETE | `/api/favorites/[id]`      | 刪除常用項目                                                 |
 | GET    | `/api/reports?date=`       | 該週週報，沒有則回 `null`                                    |
 | POST   | `/api/reports`             | 從頭產生（`force: true` 才會覆蓋既有週報，否則 409）         |
 | POST   | `/api/reports/sync`        | 建立或同步該週週報；回傳週報、變動摘要、是否已套用或待更新數 |
@@ -184,7 +191,11 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 
 - 介面文字使用繁體中文；欄位標題標明必填或選填
 - 刪除記事、刪除週報列：卡片或列內二次確認（紅底「確定刪除？」，「取消」預設取得焦點，Esc 取消），確認後立即刪除，**沒有復原**；不使用瀏覽器內建的確認對話框
-- 提示（Toast）預設 4 秒，目前沒有任何會用到「復原」的操作
+- 提示一律用 `useToast()` 的 `success(msg)`（3 秒、綠色 ✓）與 `error(msg)`（4 秒、紅底），**不要**自己傳 `duration` 或再做頁面內的錯誤紅字；目前沒有任何會用到「復原」的操作
+  - 句型：成功「已{動作}{對象}」（已新增記事、已更新常用項目、已刪除一列…）；失敗「{動作}{對象}失敗：{原因}」或「…失敗，請再試一次」
+  - 所有 CRUD 都要有 toast（記事、常用項目、週報的新增／編輯／刪除／匯出／重新產生）；例外：週報打字自動保存（有「已自動儲存」狀態字）、常用項目 ↑↓ 排序（只在失敗時提示）
+  - 欄位輸入有誤（空白、過長、名稱重複）留在欄位旁顯示，方便原地修正，不用 toast；伺服器或網路失敗才用 `error()`；整頁載入失敗維持頁面內文字
+- 需要整頁層級確認的破壞性操作（例如重新產生週報）用 `ConfirmDialog`（原生 `<dialog>`：背景變暗、Esc 或點背景取消、「取消」預設取得焦點）；卡片或列內的刪除維持上一條的行內確認
 - 預計完成日使用瀏覽器日期選擇器，點欄位任何位置就開啟（`showPicker()`）；內部儲存仍是 `YYYY/MM/DD`
 - 本週記事頁的視覺：有記事的日子白底實線、標題旁顯示「N 筆」，沒有記事的日子淡色虛線加「還沒有記事」；記事卡片左側藍線、工作項目用藍色字；新增與編輯的表單是淡藍底虛線框；今天那一欄頂端有整條藍色「今天」色帶、外框加粗並有光暈
 - 手機寬度：五格改直向排列；週報表格改成每列一張卡片

@@ -12,6 +12,7 @@ import type {
 } from "@/lib/report";
 import { sortRowsByDueDate } from "@/lib/report-order";
 import { addDays, getWeekRange, parseIsoDate, toIsoDate } from "@/lib/week";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ReportTable } from "./ReportTable";
 import { TaskMenu } from "./TaskMenu";
 import { useToast } from "./Toast";
@@ -47,7 +48,7 @@ function describe(s: Summary) {
 }
 
 export function ReportEditor({ date }: { date: string }) {
-  const { show } = useToast();
+  const toast = useToast();
   const [report, setReport] = useState<WeeklyReport | null>(null);
   const [content, setContent] = useState<ReportContent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,8 @@ export function ReportEditor({ date }: { date: string }) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [pending, setPending] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const dirty = useRef(false);
   const reportRef = useRef<WeeklyReport | null>(null);
   const contentRef = useRef<ReportContent | null>(null);
@@ -114,10 +117,10 @@ export function ReportEditor({ date }: { date: string }) {
       setPending(result.pending);
       setLoading(false);
       if (!initial && result.applied) {
-        show({ message: describe(result.summary), duration: 4000 });
+        toast.success(describe(result.summary));
       }
     },
-    [date, flush, applyServer, show],
+    [date, flush, applyServer, toast],
   );
 
   useEffect(() => {
@@ -186,52 +189,65 @@ export function ReportEditor({ date }: { date: string }) {
     if (immediate) void flush();
   }
 
-  async function applyNow(message?: boolean) {
+  /**
+   * Pull the latest entries into this report. `showSummary` reports what the
+   * sync changed; `doneMessage` replaces it with a fixed message (used by
+   * restore / reset, where the user's own action is what they want confirmed).
+   */
+  async function applyNow(showSummary: boolean, doneMessage?: string) {
     if (!report || !(await flush())) return;
     const res = await fetch(`/api/reports/${report.id}/apply`, {
       method: "POST",
     });
     if (!res.ok) {
-      setError("更新失敗");
+      toast.error("套用更新失敗，請再試一次");
       return;
     }
     const result: { report: WeeklyReport; summary: Summary } = await res.json();
     applyServer(result.report);
     setPending(0);
     const s = result.summary;
-    if (message && s.added + s.updated + s.removed > 0) {
-      show({ message: describe(s), duration: 4000 });
+    if (doneMessage) toast.success(doneMessage);
+    else if (showSummary && s.added + s.updated + s.removed > 0) {
+      toast.success(describe(s));
     }
   }
 
   async function startOver() {
-    if (!report) return;
-    if (!confirm("從頭重新產生會清除你在這份週報的所有修改，確定嗎？")) return;
-    const res = await fetch("/api/reports", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, force: true }),
-    });
-    if (!res.ok) {
-      setError("重新產生失敗");
-      return;
+    if (!report || resetting) return;
+    setResetting(true);
+    try {
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, force: true }),
+      });
+      if (!res.ok) {
+        toast.error("重新產生週報失敗，請再試一次");
+        return;
+      }
+      applyServer(await res.json());
+      setPending(0);
+      toast.success("已重新產生週報");
+    } catch {
+      toast.error("重新產生週報失敗，請檢查網路後再試一次");
+    } finally {
+      setResetting(false);
+      setConfirmingReset(false);
     }
-    applyServer(await res.json());
-    setPending(0);
   }
 
   async function exportDocx() {
     if (!report) return;
-    setError(null);
     setExporting(true);
     try {
-      if (!(await flush())) throw new Error("儲存失敗，無法匯出");
+      if (!(await flush())) throw new Error("儲存失敗，無法匯出週報");
       const res = await fetch(`/api/reports/${report.id}/export`, {
         method: "POST",
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? "匯出失敗");
+        throw new Error(body?.error ?? "匯出週報失敗");
       }
       const blob = await res.blob();
       const c = contentRef.current;
@@ -245,8 +261,9 @@ export function ReportEditor({ date }: { date: string }) {
         cache: "no-store",
       });
       if (fresh.ok) applyServer(await fresh.json());
+      toast.success("已匯出週報");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "匯出失敗");
+      toast.error(e instanceof Error ? e.message : "匯出週報失敗");
     } finally {
       setExporting(false);
     }
@@ -314,6 +331,7 @@ export function ReportEditor({ date }: { date: string }) {
       } as ReportContent,
       true,
     );
+    toast.success("已刪除一列");
   }
 
   // A next-week row copied from a this-week row remembers where it came from.
@@ -344,10 +362,7 @@ export function ReportEditor({ date }: { date: string }) {
       },
       true,
     );
-    show({
-      message: "已新增至下週工作項目（已帶入名稱與預計完成日）",
-      duration: 3500,
-    });
+    toast.success("已新增至下週工作項目（已帶入名稱與預計完成日）");
   }
 
   /** After a due date is entered, put the table back in due-date order. */
@@ -367,7 +382,7 @@ export function ReportEditor({ date }: { date: string }) {
         (r) => (r.id === id ? { ...r, touched: [] } : r),
       ),
     } as ReportContent);
-    void applyNow(false);
+    void applyNow(false, "已還原此列");
   }
 
   function restoreRow(table: "thisWeek" | "nextWeek", groupKey: string) {
@@ -380,7 +395,7 @@ export function ReportEditor({ date }: { date: string }) {
         [table]: dismissed[table].filter((d) => d.groupKey !== groupKey),
       },
     });
-    void applyNow(false);
+    void applyNow(false, "已加回項目");
   }
 
   const today = todayString();
@@ -456,7 +471,7 @@ export function ReportEditor({ date }: { date: string }) {
               </p>
               {isThisWeek && (
                 <p className="mt-1 text-xs text-muted">
-                  內容會依最新的記事自動更新；你修改過的欄位、填寫的進度和預計完成日不會被覆蓋。
+                  內容會依最新的記事自動更新；你在這裡修改的內容只留在週報，不會改到記事，也不會被自動更新覆蓋。
                 </p>
               )}
             </div>
@@ -486,7 +501,7 @@ export function ReportEditor({ date }: { date: string }) {
                   {
                     label: "從頭重新產生",
                     danger: true,
-                    onSelect: startOver,
+                    onSelect: () => setConfirmingReset(true),
                   },
                 ]}
               />
@@ -510,7 +525,7 @@ export function ReportEditor({ date }: { date: string }) {
               onDueDateCommit={() => sortTable("thisWeek")}
               onReset={(id) => resetRow("thisWeek", id)}
               onRestore={(groupKey) => restoreRow("thisWeek", groupKey)}
-              onAdd={() =>
+              onAdd={() => {
                 edit(
                   {
                     ...content,
@@ -527,8 +542,9 @@ export function ReportEditor({ date }: { date: string }) {
                     ],
                   },
                   true,
-                )
-              }
+                );
+                toast.success("已新增一列");
+              }}
             />
           </section>
 
@@ -542,7 +558,7 @@ export function ReportEditor({ date }: { date: string }) {
               onEdit={(id, patch) => editRow("nextWeek", id, patch)}
               onRemove={(id) => removeRow("nextWeek", id)}
               onDueDateCommit={() => sortTable("nextWeek")}
-              onAdd={() =>
+              onAdd={() => {
                 edit(
                   {
                     ...content,
@@ -559,12 +575,24 @@ export function ReportEditor({ date }: { date: string }) {
                     ],
                   },
                   true,
-                )
-              }
+                );
+                toast.success("已新增一列");
+              }}
             />
           </section>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmingReset}
+        title="從頭重新產生這份週報？"
+        message="會清除你在這份週報的所有修改（包含下週表），改成依最新記事重新帶入。此操作無法復原。"
+        confirmLabel="重新產生"
+        danger
+        busy={resetting}
+        onConfirm={startOver}
+        onCancel={() => setConfirmingReset(false)}
+      />
     </div>
   );
 }

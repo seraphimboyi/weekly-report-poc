@@ -14,6 +14,11 @@ const LINKS = [
     label: "週報",
     match: (p: string) => p.startsWith("/report"),
   },
+  {
+    href: "/favorites",
+    label: "常用項目",
+    match: (p: string) => p.startsWith("/favorites"),
+  },
 ];
 
 export function AppHeader() {

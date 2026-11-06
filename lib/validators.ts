@@ -33,6 +33,22 @@ export const updateEntrySchema = z
 
 export const listEntriesQuerySchema = z.object({ date: dateString.optional() });
 
+// --- favorites ---------------------------------------------------------------
+
+export const createFavoriteSchema = z.object({ name: projectName });
+
+// Rename (`name`) or reorder (`move`); exactly one of them.
+export const updateFavoriteSchema = z
+  .object({
+    name: projectName,
+    move: z.enum(["up", "down"]),
+  })
+  .partial()
+  .refine(
+    (v) => (v.name !== undefined) !== (v.move !== undefined),
+    "請擇一提供 name 或 move",
+  );
+
 // --- weekly reports ----------------------------------------------------------
 
 const row = {

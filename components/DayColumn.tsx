@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Entry } from "@/db/schema";
+import type { Entry, FavoriteProject } from "@/db/schema";
 import type { ProjectInfo } from "@/lib/entries";
 import { EntryComposer } from "./EntryComposer";
 import { EntryItem } from "./EntryItem";
@@ -13,6 +13,7 @@ type Props = {
   isToday: boolean;
   entries: Entry[];
   projects: ProjectInfo[];
+  favorites: FavoriteProject[];
   /** Weekend column has no composer. */
   readOnly?: boolean;
   onChanged: () => void;
@@ -25,11 +26,12 @@ export function DayColumn({
   isToday,
   entries,
   projects,
+  favorites,
   readOnly,
   onChanged,
   onDelete,
 }: Props) {
-  const [composing, setComposing] = useState(isToday);
+  const [composing, setComposing] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // Clicking elsewhere closes an open form, unless the user already typed
@@ -45,8 +47,8 @@ export function DayColumn({
     editDirty.current = d;
   }, []);
 
-  // Today's form stays open on purpose; other days' forms collapse.
-  const collapsible = composing && !isToday && !readOnly;
+  // Every day's form collapses on outside click (unless dirty).
+  const collapsible = composing && !readOnly;
   useEffect(() => {
     if (!collapsible && editingId === null) return;
     const onPointerDown = (e: PointerEvent) => {
@@ -76,7 +78,7 @@ export function DayColumn({
   // Empty days: dashed, low-contrast outline. Today: strong blue frame with a
   // glow ring and a full-width "today" band across the top.
   const frame = isToday
-    ? "overflow-hidden border-brand bg-surface shadow-md ring-2 ring-brand/30"
+    ? "border-brand bg-surface shadow-md ring-2 ring-brand/30"
     : hasEntries
       ? "border-slate-300 bg-surface shadow-sm"
       : "border-dashed border-slate-300 bg-transparent";
@@ -87,7 +89,7 @@ export function DayColumn({
       className={`flex flex-col gap-2 rounded-xl border p-3 ${frame}`}
     >
       {isToday && (
-        <div className="-mx-3 -mt-3 mb-1 bg-brand px-3 py-1 text-center text-xs font-semibold tracking-wide text-white">
+        <div className="-mx-3 -mt-3 mb-1 rounded-t-[11px] bg-brand px-3 py-1 text-center text-xs font-semibold tracking-wide text-white">
           今天
         </div>
       )}
@@ -120,6 +122,7 @@ export function DayColumn({
               <EntryComposer
                 mode={{ kind: "edit", entry: e }}
                 projects={projects}
+                favorites={favorites}
                 autoFocus
                 onDirtyChange={setEditDirty}
                 onCancel={() => setEditingId(null)}
@@ -153,10 +156,14 @@ export function DayColumn({
             <EntryComposer
               mode={{ kind: "create", date }}
               projects={projects}
+              favorites={favorites}
               onDirtyChange={setCreateDirty}
-              autoFocus={!isToday}
-              onCancel={isToday ? undefined : () => setComposing(false)}
-              onDone={onChanged}
+              autoFocus
+              onCancel={() => setComposing(false)}
+              onDone={() => {
+                setComposing(false);
+                onChanged();
+              }}
             />
           </div>
         ) : (
