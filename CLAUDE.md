@@ -36,20 +36,21 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 - `npm run db:migrate`：套用 migration 到 `data/app.db`（`data/` 資料夾要先存在，全新環境先 `mkdir -p data`）
 - `docker compose build`：建置映像
 - `docker compose up -d`：啟動（對外埠 3535，部署時改 `docker-compose.yml` 的埠對應）；啟動時會自動套用 migration，資料在 volume `weekly-report-data`（`/app/data`）
+- `npm run seed:demo`：把約 6 個月的假記事寫進**獨立**的 `data/demo.db`（拒絕寫入 `app.db`；已有資料時不重複寫入）。測試回顧頁用：`DATABASE_PATH=data/demo.db npm run dev`
 - 新增的 npm script 請一併寫進這裡
 
-環境變數（目前只有這三個，本機開發不需要任何 `.env`）：
+環境變數（本機開發跑記事與週報不需要任何 `.env`；回顧頁的 AI 功能需要 LiteLLM 三個欄位）：
 
 - `DATABASE_PATH`：SQLite 檔案位置，預設 `data/app.db`（Docker 內是 `/app/data/app.db`）
 - `TZ`：時區，Docker 設為 `Asia/Taipei`；日期以伺服器本地時間計算
 - `PORT`：Docker 內的監聽埠，3535
 
-`.env.example` 裡的 LiteLLM 欄位是第二階段（AI 潤飾）預留，目前沒有任何程式使用。
+`LITELLM_BASE_URL`、`LITELLM_MODEL`（必填）與 `LITELLM_API_KEY`（選填，gateway 不需要 key 時留空，就不送 Authorization 標頭）（見 `.env.example`，放 `.env.local`）：只在伺服器端由 `lib/llm.ts` 讀取，用於回顧頁；URL 或 model 沒設定時回顧頁回 502「AI 服務尚未設定」，其他功能不受影響。BASE_URL 有沒有結尾的 `/v1` 都可以。`LITELLM_REASONING_EFFORT`（選填）：兩次 LLM 呼叫都會帶 `reasoning_effort`，沒設定時預設 `high`；可改 `low`／`medium`，模型不支援時設 `off`（或留空）就不送。開啟後回應會明顯變慢（單次呼叫逾時仍是 60 秒）。
 
 ## 目錄慣例
 
 - `app/`：頁面與 API
-  - `page.tsx`：本週記事（首頁）；`report/page.tsx`：週報頁；`favorites/page.tsx`：常用項目管理頁
+  - `page.tsx`：本週記事（首頁）；`report/page.tsx`：週報頁；`review/page.tsx`：回顧頁（聊天室式 AI 問答，期間與工作項目全由問題決定）；`favorites/page.tsx`：常用項目管理頁
   - `api/**/route.ts`：Route Handler，見下方「API 端點」
 - `components/`：React 元件
   - 記事：`WeekBoard`（週視圖）、`DayColumn`（單日欄位）、`EntryItem`（記事卡片）、`EntryComposer`（新增與編輯表單，含「最近使用」「常用項目」兩個清單按鈕）
@@ -62,16 +63,17 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
   - `entries.ts`（記事 CRUD、最近用過的工作項目）
   - `favorites.ts`（常用項目 CRUD 與排序）
   - `report.ts`（由記事產生週報）、`report-sync.ts`（同步合併規則）、`report-order.ts`（依預計完成日排序，純函式，由週報頁的排序按鈕使用）、`reports.ts`（週報的存取與同步）
+  - `llm.ts`（呼叫 LiteLLM，OpenAI 相容）、`review.ts`（回顧：先由 LLM 解析問題的期間與工作項目，再撈記事回答；解析失敗退回全部期間）
   - `export.ts`（套 Word 範本）、`validators.ts`（zod schema）、`api.ts`（錯誤回應與輸入解析）
 - `templates/`：Word 範本
 - `drizzle/`：migration（`0002` 含舊資料轉換；`0003` 新增 `favorite_projects`）
-- `scripts/`：容器啟動腳本（`migrate.mjs`、`docker-entrypoint.sh`）
+- `scripts/`：容器啟動腳本（`migrate.mjs`、`docker-entrypoint.sh`）、`seed-demo.mjs`（回顧頁測試用假資料）
 - `docs/`：規格書與套版參考
 - `data/`：SQLite 資料庫檔案，不進版控、不要直接刪除或手動修改
 
 ## 資料模型
 
-- `entries`：每日記事（主要資料）。`date`（YYYY-MM-DD）、`project`（工作項目，**必填**）、`content`（備註，選填，可為空字串）；`progress`、`due_date`、`carry_over` 欄位已不使用。同一個 `project` 的記事在週報合併成一列
+- `entries`：每日記事（主要資料）。`date`（YYYY-MM-DD）、`project`（工作項目，**必填**）、`content`（備註，選填，可為空字串）；資料庫裡仍保留舊的 `progress`、`due_date`、`carry_over` 欄位（沒有資料、不再使用），但已從 `db/schema.ts` 移除；**注意**：下次執行 `db:generate` 會因此產生 `DROP COLUMN` 的 migration，要不要套用請先確認並備份 `data/app.db`。同一個 `project` 的記事在週報合併成一列
 - `weekly_reports`：週報內容（含手動修改的紀錄）。`week_start`、`week_end`（`YYYY/MM/DD`）、`content`（JSON）、`status`（draft / exported）、`exported_at`；`(user_id, week_start)` 唯一，一週一份
 - `favorite_projects`：常用項目（`name`、`sort_order`；`(user_id, name)` 唯一），只是新增記事時的填入捷徑，與 `entries` 沒有關聯：改名、刪除都不影響既有記事與週報
 - `tasks`、`logs`：舊的任務與日誌，已在 migration 0002 轉成 `entries`。資料表保留作備份與舊週報對應，**畫面與 API 都不再使用**，不要再寫入
@@ -180,6 +182,7 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 | POST   | `/api/favorites`           | 新增常用項目（`name`），重複回 409                           |
 | PATCH  | `/api/favorites/[id]`      | 改名（`name`）或調整順序（`move: up/down`，回傳新順序）      |
 | DELETE | `/api/favorites/[id]`      | 刪除常用項目                                                 |
+| POST   | `/api/review/chat`         | 回顧聊天（`messages`：user／assistant 交替，最後一則必須是 user）；伺服器先解析問題的期間與工作項目，再依記事回答，回傳 `answer`、`scope`、`entryCount` |
 | GET    | `/api/reports?date=`       | 該週週報，沒有則回 `null`                                    |
 | POST   | `/api/reports`             | 從頭產生（`force: true` 才會覆蓋既有週報，否則 409）         |
 | POST   | `/api/reports/sync`        | 建立或同步該週週報；回傳週報、變動摘要、是否已套用或待更新數 |

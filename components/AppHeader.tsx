@@ -19,6 +19,11 @@ const LINKS = [
     label: "常用項目",
     match: (p: string) => p.startsWith("/favorites"),
   },
+  {
+    href: "/review",
+    label: "AI 回顧",
+    match: (p: string) => p.startsWith("/review"),
+  },
 ];
 
 export function AppHeader() {

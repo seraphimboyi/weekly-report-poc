@@ -84,11 +84,8 @@ export const entries = sqliteTable(
     date: text("date").notNull(), // YYYY-MM-DD
     project: text("project"), // optional work item name
     content: text("content").notNull(),
-    progress: integer("progress"), // legacy: unused (progress is set on the report page)
-    dueDate: text("due_date"), // legacy: unused (due date is set on the report page)
-    carryOver: integer("carry_over", { mode: "boolean" })
-      .notNull()
-      .default(false), // legacy: unused (next week is managed on the report page)
+    // The DB table still has legacy `progress`, `due_date` and `carry_over`
+    // columns; they are intentionally not declared here (nothing reads them).
     createdAt: text("created_at").notNull().default(now),
     updatedAt: text("updated_at").notNull().default(now),
   },

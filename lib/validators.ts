@@ -33,6 +33,20 @@ export const updateEntrySchema = z
 
 export const listEntriesQuerySchema = z.object({ date: dateString.optional() });
 
+// --- review (LLM chat) ------------------------------------------------------
+
+export const chatReviewSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().trim().min(1).max(8000),
+      }),
+    )
+    .min(1)
+    .max(40),
+});
+
 // --- favorites ---------------------------------------------------------------
 
 export const createFavoriteSchema = z.object({ name: projectName });

@@ -27,6 +27,26 @@ export function listEntries(startIso: string, endIso: string): Entry[] {
     .all();
 }
 
+/** Entries in a date range, optionally limited to one exact project name. */
+export function listEntriesByRange(
+  startIso: string,
+  endIso: string,
+  project?: string,
+): Entry[] {
+  return db
+    .select()
+    .from(entries)
+    .where(
+      and(
+        eq(entries.userId, DEFAULT_USER_ID),
+        between(entries.date, startIso, endIso),
+        project ? eq(entries.project, project) : undefined,
+      ),
+    )
+    .orderBy(entries.date, entries.id)
+    .all();
+}
+
 export function getEntry(id: number): Entry {
   const e = db
     .select()

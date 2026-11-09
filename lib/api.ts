@@ -12,6 +12,7 @@ export function errorResponse(
 export class NotFoundError extends Error {}
 export class ConflictError extends Error {}
 export class BadRequestError extends Error {}
+export class ServiceUnavailableError extends Error {}
 
 /** Parse a JSON body with a zod schema; returns data or a 400 Response. */
 export async function parseBody<T extends z.ZodType>(
@@ -51,6 +52,8 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
     if (e instanceof NotFoundError) return errorResponse(404, e.message);
     if (e instanceof ConflictError) return errorResponse(409, e.message);
     if (e instanceof BadRequestError) return errorResponse(400, e.message);
+    if (e instanceof ServiceUnavailableError)
+      return errorResponse(502, e.message);
     console.error(e);
     return errorResponse(500, "伺服器發生未預期的錯誤");
   }
