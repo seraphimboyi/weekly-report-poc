@@ -49,6 +49,17 @@ body {
     @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
   }
 
+  /*
+   * Borderless in-place editor for document-style tables: reads like plain
+   * text, shows a tint on hover and a field outline while editing.
+   * Phones have no hover, so a light fill marks it as tappable there.
+   */
+  .cell-input {
+    @apply w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm text-ink placeholder:text-muted/50;
+    @apply transition-colors hover:bg-slate-50 max-md:bg-slate-50;
+    @apply focus:border-brand focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand/20;
+  }
+
   .btn {
     @apply inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink;
     @apply transition-colors hover:bg-slate-50 active:bg-slate-100;

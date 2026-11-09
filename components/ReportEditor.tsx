@@ -19,6 +19,7 @@ import {
   toIsoDate,
 } from "@/lib/week";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { InfoTip } from "./InfoTip";
 import { ReportTable } from "./ReportTable";
 import { TaskMenu } from "./TaskMenu";
 import { useToast } from "./Toast";
@@ -36,6 +37,8 @@ type SyncResult = {
 const WEEKDAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
 const SAVE_DELAY_MS = 800;
+
+const SORT_BTN = "btn btn-ghost min-h-8 px-2 py-1 text-xs hover:bg-slate-100";
 
 const EMPTY_DISMISSED = { thisWeek: [], nextWeek: [] } as {
   thisWeek: DismissedItem[];
@@ -497,7 +500,14 @@ export function ReportEditor({ date }: { date: string }) {
           <div className="card">
             <div className="flex flex-col gap-2 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-medium text-muted">工作區間</p>
+                <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+                  工作區間
+                  {isThisWeek && (
+                    <InfoTip label="週報如何更新">
+                      內容會依最新的記事自動更新；你在這裡修改的內容只留在週報，不會改到記事，也不會被自動更新覆蓋。
+                    </InfoTip>
+                  )}
+                </p>
                 <div className="flex items-center gap-2">
                   <output className="text-xs text-muted">
                     {saveState === "saving" && "儲存中…"}
@@ -533,11 +543,6 @@ export function ReportEditor({ date }: { date: string }) {
                   {isThisWeek ? "本週" : "過去週次"}
                 </span>
               </p>
-              {isThisWeek && (
-                <p className="text-xs text-muted">
-                  內容會依最新的記事自動更新；你在這裡修改的內容只留在週報，不會改到記事，也不會被自動更新覆蓋。
-                </p>
-              )}
             </div>
             <div className="flex items-center justify-end gap-2 rounded-b-xl border-t border-line bg-slate-50 px-5 py-3">
               <TaskMenu
@@ -578,24 +583,37 @@ export function ReportEditor({ date }: { date: string }) {
 
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="font-semibold">一、本週工作項目</h2>
+              <h2 className="flex items-center gap-2 font-semibold">
+                一、本週工作項目
+                {/* Phones have no table header; md+ shows this in the table. */}
+                <span className="inline-flex md:hidden">
+                  <InfoTip label="如何加入下週工作項目">
+                    按每列的「→
+                    加入下週」，會把名稱和預計完成日帶到下週表；預計達成進度和備註請到下週表填寫。
+                  </InfoTip>
+                </span>
+              </h2>
               <button
                 type="button"
-                className="btn"
+                className={SORT_BTN}
                 onClick={() => sortTable("thisWeek")}
               >
+                <span aria-hidden="true">↕</span>
                 依預計完成日排序
               </button>
             </div>
-            <p className="-mt-1 text-xs text-muted">
-              按每列下方的「新增至下週工作項目」，會把名稱和預計完成日帶到下週表；預計達成進度和備註請到下週表填寫。
-            </p>
             <ReportTable<ThisWeekRow>
               rows={content.thisWeek}
               progressKey="progress"
               progressLabel="目前進度"
               emptyText="沒有項目。有新的記事時會自動帶入，也可以按下方「新增一列」。"
               addToNext={{ isAdded: isInNext, onAdd: addToNext }}
+              actionsHelp={
+                <InfoTip label="如何加入下週工作項目" align="right">
+                  按每列右側的 →
+                  圖示，會把名稱和預計完成日帶到下週表；預計達成進度和備註請到下週表填寫。
+                </InfoTip>
+              }
               dismissed={content.dismissed?.thisWeek ?? []}
               onEdit={(id, patch) => editRow("thisWeek", id, patch)}
               onRemove={(id) => removeRow("thisWeek", id)}
@@ -629,9 +647,10 @@ export function ReportEditor({ date }: { date: string }) {
               <h2 className="font-semibold">二、下週預計工作項目</h2>
               <button
                 type="button"
-                className="btn"
+                className={SORT_BTN}
                 onClick={() => sortTable("nextWeek")}
               >
+                <span aria-hidden="true">↕</span>
                 依預計完成日排序
               </button>
             </div>
@@ -639,7 +658,7 @@ export function ReportEditor({ date }: { date: string }) {
               rows={content.nextWeek}
               progressKey="targetProgress"
               progressLabel="預計達成進度"
-              emptyText="沒有項目。按本週工作項目下方的「新增至下週工作項目」加入，也可以按下方「新增一列」。"
+              emptyText="沒有項目。在本週工作項目按「→ 加入下週」加入，也可以按下方「新增一列」。"
               onEdit={(id, patch) => editRow("nextWeek", id, patch)}
               onRemove={(id) => removeRow("nextWeek", id)}
               onAdd={() => {

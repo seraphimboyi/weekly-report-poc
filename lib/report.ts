@@ -60,8 +60,8 @@ const firstLine = (s: string) => s.split("\n")[0].trim();
 
 /**
  * Note text for a work item: every note of the week, one per line, oldest
- * first. When the notes span several days, the first note of each day gets a
- * "MM/DD " prefix; with a single day there is no prefix.
+ * first. When the notes span several days, the first note of each day is
+ * preceded by an "MM/DD" line; with a single day there is no date line.
  */
 function buildNote(all: Entry[]): string {
   // A note is optional: entries without text add nothing to the report note.
@@ -72,7 +72,7 @@ function buildNote(all: Entry[]): string {
     .map((e) => {
       const prefix =
         multiDay && e.date !== lastDate
-          ? `${toSlashDate(e.date).slice(5)} `
+          ? `${toSlashDate(e.date).slice(5)}\n`
           : "";
       lastDate = e.date;
       return `${prefix}${e.content}`;
