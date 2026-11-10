@@ -5,7 +5,7 @@ export type ChatMessage = {
   content: string;
 };
 
-const TIMEOUT_MS = 120_000;
+const TIMEOUT_MS = 180_000;
 
 /**
  * Call the LiteLLM proxy (OpenAI-compatible chat completions).
@@ -19,10 +19,8 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
   if (!baseUrl || !model) {
     throw new ServiceUnavailableError("AI 服務尚未設定");
   }
-  // Accept a base URL given with or without the trailing /v1.
-  const endpoint = baseUrl.endsWith("/v1")
-    ? `${baseUrl}/chat/completions`
-    : `${baseUrl}/v1/chat/completions`;
+
+  const endpoint = `${baseUrl}/v1/chat/completions`;
 
   // Reasoning effort defaults to "high". Set LITELLM_REASONING_EFFORT to another
   // level (low / medium), or to "off" (or empty) for models that do not accept it.

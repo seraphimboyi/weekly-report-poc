@@ -45,7 +45,7 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 - `TZ`：時區，Docker 設為 `Asia/Taipei`；日期以伺服器本地時間計算
 - `PORT`：Docker 內的監聽埠，3535
 
-`LITELLM_BASE_URL`、`LITELLM_MODEL`（必填）與 `LITELLM_API_KEY`（選填，gateway 不需要 key 時留空，就不送 Authorization 標頭）（見 `.env.example`，放 `.env.local`）：只在伺服器端由 `lib/llm.ts` 讀取，用於回顧頁；URL 或 model 沒設定時回顧頁回 502「AI 服務尚未設定」，其他功能不受影響。BASE_URL 有沒有結尾的 `/v1` 都可以。`LITELLM_REASONING_EFFORT`（選填）：兩次 LLM 呼叫都會帶 `reasoning_effort`，沒設定時預設 `high`；可改 `low`／`medium`，模型不支援時設 `off`（或留空）就不送。開啟後回應會明顯變慢（單次呼叫逾時仍是 60 秒）。
+`LITELLM_BASE_URL`、`LITELLM_MODEL`（必填）與 `LITELLM_API_KEY`（選填，gateway 不需要 key 時留空，就不送 Authorization 標頭）（見 `.env.example`，放 `.env.local`）：只在伺服器端由 `lib/llm.ts` 讀取，用於回顧頁；URL 或 model 沒設定時回顧頁回 502「AI 服務尚未設定」，其他功能不受影響。BASE_URL 不要包含 `/v1`（程式會自動補上 `/v1/chat/completions`）。`LITELLM_REASONING_EFFORT`（選填）：兩次 LLM 呼叫都會帶 `reasoning_effort`，沒設定時預設 `high`；可改 `low`／`medium`，模型不支援時設 `off`（或留空）就不送。開啟後回應會明顯變慢（單次呼叫逾時仍是 180 秒）。
 
 ## 目錄慣例
 
@@ -171,25 +171,25 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 
 輸入一律用 zod 驗證：400 驗證失敗（回 `{ error, details }`）、404 找不到、409 衝突、500 未預期錯誤。
 
-| 方法   | 路徑                       | 用途                                                         |
-| ------ | -------------------------- | ------------------------------------------------------------ |
-| GET    | `/api/entries?date=`       | 該日所在週的記事（週三到下週二連續 7 天，回傳範圍內所有記事；畫面不開放週六、日新增），預設今天                     |
-| POST   | `/api/entries`             | 新增記事（`date`、`project` 必填，`content` 選填）           |
-| PATCH  | `/api/entries/[id]`        | 編輯記事（部分欄位，工作項目不可清空）                       |
-| DELETE | `/api/entries/[id]`        | 刪除記事                                                     |
-| GET    | `/api/projects`            | 最近用過的工作項目（建議清單用）                             |
-| GET    | `/api/favorites`           | 常用項目，依順序                                             |
-| POST   | `/api/favorites`           | 新增常用項目（`name`），重複回 409                           |
-| PATCH  | `/api/favorites/[id]`      | 改名（`name`）或調整順序（`move: up/down`，回傳新順序）      |
-| DELETE | `/api/favorites/[id]`      | 刪除常用項目                                                 |
+| 方法   | 路徑                       | 用途                                                                                                                                                    |
+| ------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/entries?date=`       | 該日所在週的記事（週三到下週二連續 7 天，回傳範圍內所有記事；畫面不開放週六、日新增），預設今天                                                         |
+| POST   | `/api/entries`             | 新增記事（`date`、`project` 必填，`content` 選填）                                                                                                      |
+| PATCH  | `/api/entries/[id]`        | 編輯記事（部分欄位，工作項目不可清空）                                                                                                                  |
+| DELETE | `/api/entries/[id]`        | 刪除記事                                                                                                                                                |
+| GET    | `/api/projects`            | 最近用過的工作項目（建議清單用）                                                                                                                        |
+| GET    | `/api/favorites`           | 常用項目，依順序                                                                                                                                        |
+| POST   | `/api/favorites`           | 新增常用項目（`name`），重複回 409                                                                                                                      |
+| PATCH  | `/api/favorites/[id]`      | 改名（`name`）或調整順序（`move: up/down`，回傳新順序）                                                                                                 |
+| DELETE | `/api/favorites/[id]`      | 刪除常用項目                                                                                                                                            |
 | POST   | `/api/review/chat`         | 回顧聊天（`messages`：user／assistant 交替，最後一則必須是 user）；伺服器先解析問題的期間與工作項目，再依記事回答，回傳 `answer`、`scope`、`entryCount` |
-| GET    | `/api/reports?date=`       | 該週週報，沒有則回 `null`                                    |
-| POST   | `/api/reports`             | 從頭產生（`force: true` 才會覆蓋既有週報，否則 409）         |
-| POST   | `/api/reports/sync`        | 建立或同步該週週報；回傳週報、變動摘要、是否已套用或待更新數 |
-| GET    | `/api/reports/[id]`        | 單份週報                                                     |
-| PATCH  | `/api/reports/[id]`        | 儲存編輯後的內容（自動保存呼叫）                             |
-| POST   | `/api/reports/[id]/apply`  | 套用最新記事到該週報（橫幅按鈕、加回、還原整列）             |
-| POST   | `/api/reports/[id]/export` | 產生 .docx 並回傳，同時標記為已匯出                          |
+| GET    | `/api/reports?date=`       | 該週週報，沒有則回 `null`                                                                                                                               |
+| POST   | `/api/reports`             | 從頭產生（`force: true` 才會覆蓋既有週報，否則 409）                                                                                                    |
+| POST   | `/api/reports/sync`        | 建立或同步該週週報；回傳週報、變動摘要、是否已套用或待更新數                                                                                            |
+| GET    | `/api/reports/[id]`        | 單份週報                                                                                                                                                |
+| PATCH  | `/api/reports/[id]`        | 儲存編輯後的內容（自動保存呼叫）                                                                                                                        |
+| POST   | `/api/reports/[id]/apply`  | 套用最新記事到該週報（橫幅按鈕、加回、還原整列）                                                                                                        |
+| POST   | `/api/reports/[id]/export` | 產生 .docx 並回傳，同時標記為已匯出                                                                                                                     |
 
 ## 介面與互動慣例
 

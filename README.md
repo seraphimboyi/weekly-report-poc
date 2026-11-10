@@ -122,7 +122,7 @@ data/                    SQLite 資料庫檔案（不進版控）
 
 | 變數                       | 說明                                                                                   |
 | -------------------------- | -------------------------------------------------------------------------------------- |
-| `LITELLM_BASE_URL`         | 必填。gateway 網址，結尾有沒有 `/v1` 都可以                                            |
+| `LITELLM_BASE_URL`         | 必填。gateway 網址，不要包含 `/v1`（程式會自動補上）                                    |
 | `LITELLM_MODEL`            | 必填。模型名稱                                                                         |
 | `LITELLM_API_KEY`          | 選填。gateway 不需要 key 時留空，就不送 Authorization 標頭                             |
 | `LITELLM_REASONING_EFFORT` | 選填。預設 `high`；可改 `low`／`medium`，模型不支援時設 `off`。開啟後回應會明顯變慢    |

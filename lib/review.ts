@@ -5,7 +5,7 @@ import { listEntriesByRange, listProjects } from "./entries";
 import { type ChatMessage, chat } from "./llm";
 import { addDays, getWeekRange, parseIsoDate, toIsoDate } from "./week";
 
-const MAX_CONTEXT_CHARS = 60_000;
+const MAX_CONTEXT_CHARS = 150_000;
 const HISTORY_LIMIT = 6;
 const MIN_DATE = "0000-01-01";
 const MAX_DATE = "9999-12-31";
