@@ -24,6 +24,8 @@ const EXAMPLES = [
   "10/20 到 10/30 我做了什麼事情？",
 ];
 
+const STORAGE_KEY = "review-chat";
+
 const slash = (iso: string) => iso.replaceAll("-", "/");
 
 function scopeLabel(scope: Scope, count: number) {
@@ -39,7 +41,31 @@ export function ReviewPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [restored, setRestored] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Restore the conversation after mount (sessionStorage is browser-only).
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed)) setMessages(parsed as Message[]);
+    } catch {
+      // Corrupted data: start with an empty conversation.
+    }
+    setRestored(true);
+  }, []);
+
+  // Persist after restoring, so the initial empty list never overwrites it.
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      if (messages.length === 0) sessionStorage.removeItem(STORAGE_KEY);
+      else sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {
+      // Storage full or unavailable: keep working without persistence.
+    }
+  }, [messages, restored]);
 
   // Keep the newest message (or the "thinking" bubble) in view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on any change
