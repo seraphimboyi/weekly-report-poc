@@ -195,7 +195,7 @@ MVP 只有一個 Next.js 專案：前端頁面透過 API Route 讀寫 SQLite，�
 | progress | 目前進度（只在 thisWeek），含 % 的字串，由使用者填 | 60% |
 | targetProgress | 預計達成進度（只在 nextWeek），含 % 的字串，由使用者填 | 100% |
 | dueDate | 預計完成日，格式 YYYY/MM/DD，由使用者填 | 2026/11/13 |
-| note | 備註，可留白；換行會轉成 Word 的換行 | 11/03 完成拖曳上傳 |
+| note | 備註，可留白；換行會轉成 Word 的換行 | 11/04 完成拖曳上傳 |
 
 實際儲存的 JSON 還有同步與編輯用的欄位（每列的 `id`、`groupKey`、`touched`，以及整份的 `dismissed`），範本不使用、會忽略；細節見 `CLAUDE.md`。
 

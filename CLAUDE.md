@@ -130,8 +130,8 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
 
 ```json
 {
-  "weekStart": "2026/11/02",
-  "weekEnd": "2026/11/06",
+  "weekStart": "2026/11/04",
+  "weekEnd": "2026/11/10",
   "thisWeek": [
     {
       "id": "（前端列識別，uuid）",
@@ -141,7 +141,7 @@ Next.js 16 與舊版差異很大，且本專案開啟了 `cacheComponents`。寫
       "title": "DocExtractor 上傳頁面",
       "progress": "60%",
       "dueDate": "2026/11/13",
-      "note": "11/03\n完成拖曳上傳\n11/04\n修正錯誤提示"
+      "note": "11/04\n完成拖曳上傳\n11/05\n修正錯誤提示"
     }
   ],
   "nextWeek": [
