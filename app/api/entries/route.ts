@@ -4,7 +4,7 @@ import { todayString } from "@/lib/date";
 import { createEntry, listEntries, weekRange } from "@/lib/entries";
 import { createEntrySchema, listEntriesQuerySchema } from "@/lib/validators";
 
-// Entries of the week containing `date` (default: today), Monday to Sunday.
+// Entries of the week containing `date` (default: today), Wednesday to next Tuesday (per WEEK_CONFIG).
 export async function GET(request: NextRequest) {
   return handle(async () => {
     const q = listEntriesQuerySchema.safeParse({
